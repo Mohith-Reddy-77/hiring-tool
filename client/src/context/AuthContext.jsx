@@ -7,9 +7,10 @@ const STORAGE_KEY = 'hiring_token'
 const USER_KEY = 'hiring_user'
 
 export function AuthProvider({ children }) {
-  const [token, setTokenState] = useState(() => localStorage.getItem(STORAGE_KEY))
+  // Use sessionStorage so the auth session is scoped to this tab and survives reloads
+  const [token, setTokenState] = useState(() => sessionStorage.getItem(STORAGE_KEY))
   const [user, setUser] = useState(() => {
-    const raw = localStorage.getItem(USER_KEY)
+    const raw = sessionStorage.getItem(USER_KEY)
     return raw ? JSON.parse(raw) : null
   })
 
@@ -18,16 +19,16 @@ export function AuthProvider({ children }) {
   }, [token])
 
   const login = useCallback((newToken, profile) => {
-    localStorage.setItem(STORAGE_KEY, newToken)
-    localStorage.setItem(USER_KEY, JSON.stringify(profile))
+    sessionStorage.setItem(STORAGE_KEY, newToken)
+    sessionStorage.setItem(USER_KEY, JSON.stringify(profile))
     setTokenState(newToken)
     setUser(profile)
     setAuthToken(newToken)
   }, [])
 
   const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-    localStorage.removeItem(USER_KEY)
+    sessionStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(USER_KEY)
     setTokenState(null)
     setUser(null)
     setAuthToken(null)

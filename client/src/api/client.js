@@ -26,8 +26,9 @@ api.interceptors.response.use(
   (err) => {
     if (err && err.response && err.response.status === 401) {
       try {
-        localStorage.removeItem('hiring_token')
-        localStorage.removeItem('hiring_user')
+        // Clear session-scoped auth (per-tab)
+        sessionStorage.removeItem('hiring_token')
+        sessionStorage.removeItem('hiring_user')
         // ensure axios no longer sends auth header
         setAuthToken(null)
       } catch (e) {}
