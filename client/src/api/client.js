@@ -20,4 +20,14 @@ export function setAuthToken(token) {
   }
 }
 
+// Initialize Authorization header from sessionStorage on module load to
+// avoid a race where components fetch data before `AuthProvider` mounts
+// and calls `setAuthToken` (causing 401s on refresh).
+try {
+  const initialToken = sessionStorage.getItem('hiring_token')
+  if (initialToken) setAuthToken(initialToken)
+} catch (e) {
+  // sessionStorage may be unavailable in some environments; ignore silently
+}
+
 export default api
