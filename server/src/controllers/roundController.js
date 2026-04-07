@@ -145,7 +145,7 @@ async function myRounds(req, res, next) {
     if (client) {
       const { data, error } = await client.from('interview_rounds').select('*').eq('interviewer_id', req.userId).order('scheduled_at', { ascending: true }).limit(200);
       if (error) return res.status(500).json({ message: 'Failed to list rounds' });
-      const mapped = await Promise.all((rows || []).map(async (r) => {
+      const mapped = await Promise.all((data || []).map(async (r) => {
         const interviewerResp = r.interviewer_id ? await client.from('users').select('id,name,email,role').eq('id', r.interviewer_id).maybeSingle() : null;
         const templateRow = r.template_id ? await supa.getTemplateById(r.template_id) : null;
         const feedbackResp = await client.from('feedback').select('*').eq('round_id', r.id).maybeSingle();
