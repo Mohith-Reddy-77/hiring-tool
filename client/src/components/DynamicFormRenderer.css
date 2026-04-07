@@ -1,0 +1,73 @@
+.dynamic-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.df-card {
+  background: linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.df-card--rating {
+  border-top: 3px solid #f59e0b;
+}
+
+.df-card--text {
+  border-top: 3px solid #3b82f6;
+}
+
+.df-card--textarea {
+  border-top: 3px solid #8b5cf6;
+}
+
+.df-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+.df-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.df-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.df-input,
+.df-textarea {
+  width: 100%;
+  max-width: 36rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.df-textarea {
+  resize: vertical;
+  min-height: 5rem;
+  line-height: 1.45;
+}
+
+.df-submit {
+  align-self: flex-start;
+  margin-top: 0.25rem;
+}
+
+.df-error {
+  margin: 0;
+  font-size: 0.9rem;
+}

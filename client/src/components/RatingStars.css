@@ -1,0 +1,74 @@
+.rs-display,
+.rs-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-wrap: wrap;
+}
+
+.rs-display--sm .rs-star-svg {
+  width: 16px;
+  height: 16px;
+}
+
+.rs-display--md .rs-star-svg {
+  width: 22px;
+  height: 22px;
+}
+
+.rs-display--lg .rs-star-svg {
+  width: 28px;
+  height: 28px;
+}
+
+.rs-input--md .rs-star-svg {
+  width: 34px;
+  height: 34px;
+}
+
+.rs-star-svg {
+  fill: #e2e8f0;
+  transition: fill 0.15s ease;
+  display: block;
+}
+
+.rs-star-svg--on {
+  fill: #f59e0b;
+}
+
+.rs-input-star {
+  display: inline-flex;
+  padding: 0.15rem;
+  margin: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 6px;
+  line-height: 0;
+}
+
+.rs-input-star:hover:not(:disabled) .rs-star-svg {
+  fill: #fbbf24;
+}
+
+.rs-input-star:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.rs-input-star--on .rs-star-svg {
+  fill: #f59e0b;
+}
+
+.rs-display-num {
+  margin-left: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.rs-input-hint {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}

@@ -1,0 +1,6 @@
+Sample Resume
+
+Name: Jane Doe
+Email: jane.doe@example.com
+Experience: 5 years in software engineering
+Skills: JavaScript, Node.js, React
