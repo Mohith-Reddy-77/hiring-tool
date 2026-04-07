@@ -65,6 +65,14 @@ app.use('/api/rounds', roundRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/users', userRoutes);
 
+// Health check and root route
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// Root redirect: redirect to the client app (set via CLIENT_URL env)
+app.get('/', (req, res) => {
+  const redirectTo = process.env.CLIENT_URL || 'https://example.com';
+  return res.redirect(redirectTo);
+});
 app.use((err, req, res, next) => {
   if (err.name === 'MulterError') {
     return res.status(400).json({ message: err.message || 'File upload error' });
