@@ -111,6 +111,7 @@ async function listForCandidate(req, res, next) {
           const interviewerResp = r.interviewer_id ? await client.from('users').select('id,name,email,role').eq('id', r.interviewer_id).maybeSingle() : null;
           const templateRow = r.template_id ? await supa.getTemplateById(r.template_id) : null;
           const feedbackResp = await client.from('feedback').select('*').eq('round_id', r.id).maybeSingle();
+          const candidateResp = r.candidate_id ? await client.from('candidates').select('id,name,email,resume_path').eq('id', r.candidate_id).maybeSingle() : null;
           let candidateIdField = r.candidate_id;
           if (candidateResp && candidateResp.data) {
             const resumeLink = await supa.getResumeUrl(candidateResp.data.resume_path);
