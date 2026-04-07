@@ -133,8 +133,20 @@ export function CreateTemplate() {
               <div key={t._id || t.id} className="card" style={{ padding: '0.6rem', minWidth: '220px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
                   <strong style={{ fontSize: '0.95rem' }}>{t.name}</strong>
-                  <button type="button" className="btn ghost small" onClick={() => useTemplate(t)}>
-                    Use
+                  <button
+                    type="button"
+                    className="btn ghost small"
+                    onClick={async () => {
+                      try {
+                        if (!window.confirm('Delete this template? This cannot be undone.')) return
+                        await templatesApi.remove(t._id || t.id)
+                        setExisting((prev) => prev.filter((x) => (x._id || x.id) !== (t._id || t.id)))
+                      } catch (e) {
+                        alert(e.response?.data?.message || e.message)
+                      }
+                    }}
+                  >
+                    Delete
                   </button>
                 </div>
                 <div style={{ marginTop: '0.5rem' }}>

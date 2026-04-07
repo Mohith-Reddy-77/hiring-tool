@@ -150,4 +150,51 @@ async function getById(req, res, next) {
   }
 }
 
-module.exports = { create, list, getById };
+async function remove(req, res, next) {
+  try {
+    const client = supa.getClient && supa.getClient();
+    const id = req.params.id;
+    const isUUID = (v) => typeof v === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(v);
+    if (client) {
+      // If id is UUID, delete directly; otherwise resolve mongo mapping
+      let supaId = id;
+      if (!isUUID(id)) {
+        const mongo = await Template.findById(id).lean();
+        if (!mongo) return res.status(404).json({ message: 'Template not found' });
+        if (!mongo.supabaseId) {
+          // delete mongo doc
+          await Template.deleteOne({ _id: id });
+          return res.status(204).send();
+        }
+        supaId = mongo.supabaseId;
+      }
+      // Delete from Supabase
+      try {
+        const { data, error } = await client.from('templates').delete().eq('id', supaId);
+        if (error) {
+          console.warn('Supabase delete template error:', error);
+          return res.status(500).json({ message: 'Failed to delete template' });
+        }
+      } catch (e) {
+        console.warn('Supabase delete template failed:', e?.message || e);
+      }
+      // Remove local mapping if present
+      try {
+        await Template.deleteOne({ supabaseId: supaId });
+      } catch (e) {
+        console.warn('Local template delete failed:', e?.message || e);
+      }
+      return res.status(204).send();
+    }
+
+    // fallback: delete mongo template by id
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ message: 'Template not found' });
+    await template.remove();
+    return res.status(204).send();
+  } catch (e) {
+    next(e);
+  }
+}
+
+module.exports = { create, list, getById, delete: remove, remove };

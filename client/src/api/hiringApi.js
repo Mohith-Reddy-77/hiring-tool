@@ -23,6 +23,7 @@ export const templatesApi = {
   list: () => api.get('/templates'),
   get: (id) => api.get(`/templates/${id}`),
   create: (body) => api.post('/templates', body),
+  remove: (id) => api.delete(`/templates/${id}`),
 }
 
 export const roundsApi = {

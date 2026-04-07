@@ -9,5 +9,6 @@ router.use(authenticate);
 router.post('/', requireRoles('RECRUITER'), templateController.create);
 router.get('/', templateController.list);
 router.get('/:id', templateController.getById);
+router.delete('/:id', requireRoles('RECRUITER'), templateController.delete);
 
 module.exports = router;
