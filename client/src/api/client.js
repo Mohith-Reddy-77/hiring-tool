@@ -28,11 +28,11 @@ api.interceptors.response.use(
       try {
         localStorage.removeItem('hiring_token')
         localStorage.removeItem('hiring_user')
+        // ensure axios no longer sends auth header
+        setAuthToken(null)
       } catch (e) {}
-      // navigate to login page
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login'
-      }
+      // Do NOT force a navigation to /login here; keep the user on the current page.
+      // ProtectedRoute will handle view-level redirects as appropriate.
     }
     return Promise.reject(err)
   }
