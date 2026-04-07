@@ -46,7 +46,11 @@ async function create(req, res, next) {
         const feedbackResp = await client.from('feedback').select('*').eq('round_id', row.id).maybeSingle();
         // fetch candidate details
         const candidateResp = row.candidate_id ? await client.from('candidates').select('id,name,email,resume_path').eq('id', row.candidate_id).maybeSingle() : null;
-        const candidateObj = candidateResp && candidateResp.data ? { _id: candidateResp.data.id, name: candidateResp.data.name, email: candidateResp.data.email, resumeUrl: candidateResp.data.resume_path } : { _id: row.candidate_id };
+        let candidateObj = { _id: row.candidate_id };
+        if (candidateResp && candidateResp.data) {
+          const resumeLink = await supa.getResumeUrl(candidateResp.data.resume_path);
+          candidateObj = { _id: candidateResp.data.id, name: candidateResp.data.name, email: candidateResp.data.email, resumeUrl: resumeLink || candidateResp.data.resume_path };
+        }
         const resp = {
           _id: row.id,
           name: row.name,
@@ -107,13 +111,18 @@ async function listForCandidate(req, res, next) {
           const interviewerResp = r.interviewer_id ? await client.from('users').select('id,name,email,role').eq('id', r.interviewer_id).maybeSingle() : null;
           const templateRow = r.template_id ? await supa.getTemplateById(r.template_id) : null;
           const feedbackResp = await client.from('feedback').select('*').eq('round_id', r.id).maybeSingle();
+          let candidateIdField = r.candidate_id;
+          if (candidateResp && candidateResp.data) {
+            const resumeLink = await supa.getResumeUrl(candidateResp.data.resume_path);
+            candidateIdField = { _id: candidateResp.data.id, name: candidateResp.data.name, email: candidateResp.data.email, resumeUrl: resumeLink || candidateResp.data.resume_path };
+          }
           return {
             _id: r.id,
             name: r.name,
             status: r.status,
             scheduledAt: r.scheduled_at,
             createdAt: r.created_at,
-            candidateId: r.candidate_id,
+            candidateId: candidateIdField,
             interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
             templateId: templateRow || null,
             feedback: feedbackResp && feedbackResp.data ? normalizeFeedbackRow(feedbackResp.data) : null,
@@ -161,7 +170,11 @@ async function myRounds(req, res, next) {
         const templateRow = r.template_id ? await supa.getTemplateById(r.template_id) : null;
         const feedbackResp = await client.from('feedback').select('*').eq('round_id', r.id).maybeSingle();
         const candidateResp = r.candidate_id ? await client.from('candidates').select('id,name,email,resume_path').eq('id', r.candidate_id).maybeSingle() : null;
-        const candidateObj = candidateResp && candidateResp.data ? { _id: candidateResp.data.id, name: candidateResp.data.name, email: candidateResp.data.email, resumeUrl: candidateResp.data.resume_path } : { _id: r.candidate_id };
+        let candidateObj = { _id: r.candidate_id };
+        if (candidateResp && candidateResp.data) {
+          const resumeLink = await supa.getResumeUrl(candidateResp.data.resume_path);
+          candidateObj = { _id: candidateResp.data.id, name: candidateResp.data.name, email: candidateResp.data.email, resumeUrl: resumeLink || candidateResp.data.resume_path };
+        }
         return {
           _id: r.id,
           name: r.name,

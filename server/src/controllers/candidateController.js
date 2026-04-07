@@ -28,12 +28,13 @@ async function create(req, res, next) {
     if (!data || !data.length) return res.status(500).json({ message: 'Supabase insert failed' });
     const row = data[0];
     // Return object with `_id` for client compatibility (use Supabase UUID)
+    const resumeLink = await supa.getResumeUrl(row.resume_path);
     const mapped = {
       _id: row.id,
       name: row.name,
       email: row.email,
       roleApplied: row.role_applied,
-      resumeUrl: row.resume_path,
+      resumeUrl: resumeLink || row.resume_path,
       status: row.status,
       supabaseId: row.id,
       createdAt: row.created_at,
@@ -50,15 +51,18 @@ async function list(req, res, next) {
     if (!client) return res.status(500).json({ message: 'Supabase client not configured' });
     const owner = { supaId: req.userId };
     const rows = await supa.listCandidates(200, owner);
-    const mapped = (rows || []).map((r) => ({
-      _id: r.id,
-      name: r.name,
-      email: r.email,
-      roleApplied: r.role_applied,
-      resumeUrl: r.resume_path,
-      status: r.status,
-      supabaseId: r.id,
-      createdAt: r.created_at,
+    const mapped = await Promise.all((rows || []).map(async (r) => {
+      const resumeLink = await supa.getResumeUrl(r.resume_path);
+      return {
+        _id: r.id,
+        name: r.name,
+        email: r.email,
+        roleApplied: r.role_applied,
+        resumeUrl: resumeLink || r.resume_path,
+        status: r.status,
+        supabaseId: r.id,
+        createdAt: r.created_at,
+      };
     }));
     return res.json(mapped);
   } catch (e) {
@@ -74,12 +78,13 @@ async function getById(req, res, next) {
     // Treat id as Supabase UUID
     const row = await supa.getCandidateById(id);
     if (!row) return res.status(404).json({ message: 'Candidate not found' });
+    const resumeLink = await supa.getResumeUrl(row.resume_path);
     const mapped = {
       _id: row.id,
       name: row.name,
       email: row.email,
       roleApplied: row.role_applied,
-      resumeUrl: row.resume_path,
+      resumeUrl: resumeLink || row.resume_path,
       status: row.status,
       supabaseId: row.id,
       createdAt: row.created_at,
@@ -115,12 +120,13 @@ async function update(req, res, next) {
     const data = await supa.updateCandidateById(supaId, updatesPayload);
     if (!data || !data.length) return res.status(500).json({ message: 'Supabase update failed' });
     const row = data[0];
+    const resumeLink = await supa.getResumeUrl(row.resume_path);
     const mapped = {
       _id: row.id,
       name: row.name,
       email: row.email,
       roleApplied: row.role_applied,
-      resumeUrl: row.resume_path,
+      resumeUrl: resumeLink || row.resume_path,
       status: row.status,
       supabaseId: row.id,
       createdAt: row.created_at,

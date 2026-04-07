@@ -379,3 +379,26 @@ async function listTemplates(limit = 100) {
 
 module.exports.getTemplateById = getTemplateById;
 module.exports.listTemplates = listTemplates;
+
+async function getResumeUrl(fileKey, expires = 60) {
+  try {
+    if (!fileKey) return null;
+    const client = getClient();
+    const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    if (client && SUPABASE_URL) {
+      try {
+        const { data, error } = await client.storage.from('resumes').createSignedUrl(fileKey, expires);
+        if (!error && data && data.signedUrl) return data.signedUrl;
+      } catch (e) {
+        console.warn('Supabase createSignedUrl failed:', e?.message || e);
+      }
+      return `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/public/resumes/${encodeURIComponent(fileKey)}`;
+    }
+    return null;
+  } catch (e) {
+    console.warn('getResumeUrl unexpected:', e?.message || e);
+    return null;
+  }
+}
+
+module.exports.getResumeUrl = getResumeUrl;
