@@ -20,23 +20,4 @@ export function setAuthToken(token) {
   }
 }
 
-// Global response handler: if server returns 401, clear local auth and redirect to login
-api.interceptors.response.use(
-  (resp) => resp,
-  (err) => {
-    if (err && err.response && err.response.status === 401) {
-      try {
-        // Clear session-scoped auth (per-tab)
-        sessionStorage.removeItem('hiring_token')
-        sessionStorage.removeItem('hiring_user')
-        // ensure axios no longer sends auth header
-        setAuthToken(null)
-      } catch (e) {}
-      // Do NOT force a navigation to /login here; keep the user on the current page.
-      // ProtectedRoute will handle view-level redirects as appropriate.
-    }
-    return Promise.reject(err)
-  }
-)
-
 export default api
