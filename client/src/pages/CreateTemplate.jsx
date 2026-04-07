@@ -140,7 +140,9 @@ export function CreateTemplate() {
                       try {
                         if (!window.confirm('Delete this template? This cannot be undone.')) return
                         await templatesApi.remove(t._id || t.id)
-                        setExisting((prev) => prev.filter((x) => (x._id || x.id) !== (t._id || t.id)))
+                        // reload templates to reflect current state
+                        const res = await templatesApi.list()
+                        setExisting(res.data || [])
                       } catch (e) {
                         alert(e.response?.data?.message || e.message)
                       }

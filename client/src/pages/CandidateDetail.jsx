@@ -87,6 +87,8 @@ export function CandidateDetail() {
     }
   }
 
+  const selectedTemplate = templates.find((t) => (t._id || t.id) === roundForm.templateId)
+
   if (loading && !candidate) return <p className="muted">Loading…</p>
   if (error && !candidate) return <p className="error">{error}</p>
   if (!candidate) return null
@@ -251,6 +253,14 @@ export function CandidateDetail() {
             ))}
           </select>
         </label>
+        {selectedTemplate && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <div className="template-preview-head">Template preview</div>
+            <div className="template-preview-body" style={{ marginTop: '0.5rem' }}>
+              <FeedbackDisplay structure={selectedTemplate.structure} ratings={{}} notes={''} compact />
+            </div>
+          </div>
+        )}
         <label>
           Scheduled at (optional)
           <input
