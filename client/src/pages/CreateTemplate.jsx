@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { templatesApi } from '../api/hiringApi'
 import { buildStructureFromRows } from '../lib/templateFields'
@@ -25,6 +25,8 @@ export function CreateTemplate() {
   ])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [existing, setExisting] = useState([])
+  const [loadingExisting, setLoadingExisting] = useState(false)
 
   const structurePreview = useMemo(() => buildStructureFromRows(rows), [rows])
 
@@ -41,6 +43,33 @@ export function CreateTemplate() {
     }
     return { ratings, notes }
   }, [structurePreview])
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      setLoadingExisting(true)
+      try {
+        const res = await templatesApi.list()
+        if (mounted) setExisting(res.data || [])
+      } catch (e) {
+        // ignore
+      } finally {
+        if (mounted) setLoadingExisting(false)
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const useTemplate = (t) => {
+    if (!t || !t.structure) return
+    setName(t.name || '')
+    const fields = t.structure.fields || []
+    const mappedRows = fields.map((f) => ({ id: f.key || crypto.randomUUID(), label: f.label || f.key || 'Question', type: f.type || 'text' }))
+    setRows(mappedRows)
+  }
 
   const updateRow = (id, patch) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
@@ -85,6 +114,37 @@ export function CreateTemplate() {
         Build a form interviewers will fill for this round — star scores, short answers, and notes. No JSON required;
         add rows below and preview how feedback will look.
       </p>
+
+      <div style={{ marginBottom: '1rem' }}>
+        <h2 style={{ marginTop: 0 }}>Existing templates</h2>
+        {loadingExisting && <p className="muted">Loading templates…</p>}
+        {!loadingExisting && existing.length === 0 && <p className="muted">No templates yet.</p>}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {existing.map((t) => {
+            const exampleRatings = {}
+            let exampleNotes = ''
+            const s = t.structure || { fields: [] }
+            for (const f of s.fields || []) {
+              if (f.type === 'rating') exampleRatings[f.key] = 4
+              else if (f.type === 'text') exampleRatings[f.key] = 'Short sample'
+              else if (f.type === 'textarea') exampleNotes = exampleNotes || 'Example note'
+            }
+            return (
+              <div key={t._id || t.id} className="card" style={{ padding: '0.6rem', minWidth: '220px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <strong style={{ fontSize: '0.95rem' }}>{t.name}</strong>
+                  <button type="button" className="btn ghost small" onClick={() => useTemplate(t)}>
+                    Use
+                  </button>
+                </div>
+                <div style={{ marginTop: '0.5rem' }}>
+                  <FeedbackDisplay structure={t.structure} ratings={exampleRatings} notes={exampleNotes} compact />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       <form className="card form-card template-form" onSubmit={submit}>
         <label>
