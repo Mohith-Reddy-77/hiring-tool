@@ -16,22 +16,9 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
+          <Route element={<Layout /> }>
             <Route path="/" element={<Home />} />
-            <Route
-              path="/candidates"
-              element={
-                <ProtectedRoute roles={['RECRUITER']}>
-                  <CandidateList />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/candidates" element={<CandidateList />} />
             <Route
               path="/candidates/new"
               element={
