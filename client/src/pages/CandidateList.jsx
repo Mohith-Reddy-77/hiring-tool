@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { candidatesApi } from '../api/hiringApi'
 import './Page.css'
 
@@ -20,7 +20,15 @@ export function CandidateList() {
           setItems(sorted)
         }
       } catch (e) {
-        if (!cancelled) setError(e.response?.data?.message || e.message)
+        if (!cancelled) {
+          const status = e.response?.status
+          if (status === 401 || status === 403) {
+            // redirect to login preserving this location
+            navigate('/login', { state: { from: location }, replace: true })
+            return
+          }
+          setError(e.response?.data?.message || e.message)
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
