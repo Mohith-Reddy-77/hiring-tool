@@ -10,7 +10,16 @@ async function create(req, res, next) {
     }
     const client = supa.getClient && supa.getClient();
     const userId = req.userId || null;
-    const user = userId ? await User.findById(userId).lean() : null;
+    const isUUID = (v) => typeof v === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(v);
+    let user = null;
+    if (userId) {
+      if (client && isUUID(userId)) {
+        // Supabase-authenticated user id (UUID) — keep supabaseId on user object for mapping
+        user = { supabaseId: userId };
+      } else {
+        user = await User.findById(userId).lean();
+      }
+    }
     if (client) {
       // Supabase primary
       const payload = {
@@ -67,12 +76,26 @@ async function list(req, res, next) {
   try {
     const client = supa.getClient && supa.getClient();
     const userId = req.userId || null;
-    const user = userId ? await User.findById(userId).lean() : null;
+    const isUUID = (v) => typeof v === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(v);
+    let user = null;
+    if (userId) {
+      if (client && isUUID(userId)) {
+        user = { supabaseId: userId };
+      } else {
+        user = await User.findById(userId).lean();
+      }
+    }
     if (client) {
       // If recruiter, filter templates to those created by this recruiter
       let rows = null;
+      let mongoId = null;
+      let supaId = null;
+      if (userId) {
+        if (client && isUUID(userId)) supaId = userId;
+        else mongoId = userId;
+      }
       if (req.userRole === 'RECRUITER') {
-        rows = await supa.listTemplates(200, { mongoId: userId, supaId: user ? user.supabaseId || null : null });
+        rows = await supa.listTemplates(200, { mongoId, supaId });
       } else {
         rows = await supa.listTemplates(200);
       }

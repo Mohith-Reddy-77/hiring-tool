@@ -238,7 +238,13 @@ async function update(req, res, next) {
       if (status !== undefined) round.status = status;
       if (scheduledAt !== undefined) round.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
       if (interviewerId !== undefined) {
-        const u = await User.findById(interviewerId);
+        const isUUID = (v) => typeof v === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(v);
+        let u = null;
+        if (isUUID(interviewerId)) {
+          u = await User.findOne({ supabaseId: interviewerId }).lean();
+        } else {
+          u = await User.findById(interviewerId);
+        }
         if (!u || u.role !== 'INTERVIEWER') {
           return res.status(400).json({ message: 'interviewerId must be an INTERVIEWER' });
         }
