@@ -107,7 +107,7 @@ export function InterviewRoundPage() {
                   {r.candidateId?.resumeUrl && (
                     <p>
                       <strong>Resume:</strong>{' '}
-                      <a href={fileUrl(r.candidateId.resumeUrl)} target="_blank" rel="noreferrer">
+                      <a href={fileUrl(r.candidateId.resumeUrl)}>
                         Open resume
                       </a>
                     </p>

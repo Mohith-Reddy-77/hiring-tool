@@ -2,6 +2,17 @@ const { Feedback } = require('../models/Feedback');
 const { InterviewRound } = require('../models/InterviewRound');
 const supa = require('../services/supabase');
 
+function normalizeFeedbackRow(row) {
+  if (!row) return null;
+  return {
+    _id: row.id || row.supabaseId || null,
+    ratings: row.ratings || null,
+    notes: row.notes || row.note || null,
+    submittedAt: row.submitted_at || row.submittedAt || row.created_at || null,
+    createdAt: row.created_at || row.createdAt || null,
+  };
+}
+
 async function create(req, res, next) {
   try {
     const { roundId, ratings, notes } = req.body;
@@ -26,7 +37,7 @@ async function create(req, res, next) {
       } catch (e) {
         console.warn('Supabase update round status failed:', e?.message || e);
       }
-      return res.status(201).json(inserted[0]);
+      return res.status(201).json(normalizeFeedbackRow(inserted[0]));
     }
 
     // fallback to Mongo flow
@@ -80,7 +91,7 @@ async function getForRound(req, res, next) {
       if (!isRecruiter && !isAssigned) return res.status(403).json({ message: 'Forbidden' });
       const fb = await client.from('feedback').select('*').eq('round_id', id).maybeSingle();
       if (!fb || !fb.data) return res.status(404).json({ message: 'No feedback yet' });
-      return res.json(fb.data);
+      return res.json(normalizeFeedbackRow(fb.data));
     }
 
     const round = await InterviewRound.findById(req.params.id);

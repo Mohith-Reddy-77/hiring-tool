@@ -6,6 +6,17 @@ const { Template } = require('../models/Template');
 const { Feedback } = require('../models/Feedback');
 const supa = require('../services/supabase');
 
+function normalizeFeedbackRow(row) {
+  if (!row) return null;
+  return {
+    _id: row.id || row.supabaseId || null,
+    ratings: row.ratings || row.ratings || null,
+    notes: row.notes || row.note || null,
+    submittedAt: row.submitted_at || row.submittedAt || row.created_at || null,
+    createdAt: row.created_at || row.createdAt || null,
+  };
+}
+
 async function create(req, res, next) {
   try {
     const { candidateId, interviewerId, templateId, name, status, scheduledAt } = req.body;
@@ -45,7 +56,7 @@ async function create(req, res, next) {
           candidateId: candidateObj,
           interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
           templateId: templateRow || null,
-          feedback: feedbackResp && feedbackResp.data ? feedbackResp.data : null,
+          feedback: feedbackResp && feedbackResp.data ? normalizeFeedbackRow(feedbackResp.data) : null,
         };
         return res.status(201).json(resp);
       } catch (e) {
@@ -105,7 +116,7 @@ async function listForCandidate(req, res, next) {
             candidateId: r.candidate_id,
             interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
             templateId: templateRow || null,
-            feedback: feedbackResp && feedbackResp.data ? feedbackResp.data : null,
+            feedback: feedbackResp && feedbackResp.data ? normalizeFeedbackRow(feedbackResp.data) : null,
           };
         })
       );
@@ -160,7 +171,7 @@ async function myRounds(req, res, next) {
           candidateId: candidateObj,
           interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
           templateId: templateRow || null,
-          feedback: feedbackResp && feedbackResp.data ? feedbackResp.data : null,
+          feedback: feedbackResp && feedbackResp.data ? normalizeFeedbackRow(feedbackResp.data) : null,
         };
       }));
       return res.json(mapped);
