@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { candidatesApi, templatesApi, usersApi, roundsApi } from '../api/hiringApi'
 import { FeedbackDisplay } from '../components/FeedbackDisplay'
 import { fileUrl } from '../utils/files'
@@ -23,6 +23,8 @@ export function CandidateDetail() {
   })
   const [editStatus, setEditStatus] = useState('')
   const [saving, setSaving] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const load = async () => {
     setLoading(true)
@@ -40,6 +42,11 @@ export function CandidateDetail() {
       setTemplates(tRes.data)
       setInterviewers(iRes.data)
     } catch (e) {
+      const status = e.response?.status
+      if (status === 401 || status === 403) {
+        navigate('/login', { state: { from: location }, replace: true })
+        return
+      }
       setError(e.response?.data?.message || e.message)
     } finally {
       setLoading(false)
