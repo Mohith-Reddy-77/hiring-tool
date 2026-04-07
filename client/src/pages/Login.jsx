@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { authApi } from '../api/hiringApi'
 import { useAuth } from '../context/AuthContext'
 import './Page.css'
@@ -15,8 +15,12 @@ export function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const location = useLocation()
+
   if (isAuthenticated) {
-    return <Navigate to="/" replace />
+    // If already authenticated, prefer returning to the originally requested page
+    const dest = location.state?.from?.pathname || '/'
+    return <Navigate to={dest} replace />
   }
 
   const handleSubmit = async (e) => {
@@ -31,7 +35,9 @@ export function Login() {
         const { data } = await authApi.register({ name, email, password, role })
         login(data.token, data.user)
       }
-      navigate('/')
+      // Navigate back to the original requested page if provided, otherwise home
+      const dest = location.state?.from?.pathname || '/'
+      navigate(dest, { replace: true })
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Request failed')
     } finally {
