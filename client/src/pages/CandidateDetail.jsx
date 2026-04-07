@@ -87,7 +87,8 @@ export function CandidateDetail() {
     }
   }
 
-  const selectedTemplate = templates.find((t) => (t._id || t.id) === roundForm.templateId)
+  const getTemplateId = (t) => t._id || t.id || t.supabaseId || ''
+  const selectedTemplate = templates.find((t) => getTemplateId(t) === roundForm.templateId)
 
   if (loading && !candidate) return <p className="muted">Loading…</p>
   if (error && !candidate) return <p className="error">{error}</p>
@@ -246,11 +247,14 @@ export function CandidateDetail() {
             required
           >
             <option value="">Select…</option>
-            {templates.map((t) => (
-              <option key={t._id} value={t._id}>
-                {t.name}
-              </option>
-            ))}
+            {templates.map((t) => {
+              const tid = getTemplateId(t)
+              return (
+                <option key={tid} value={tid}>
+                  {t.name}
+                </option>
+              )
+            })}
           </select>
         </label>
         {selectedTemplate && (
