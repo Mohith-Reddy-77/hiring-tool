@@ -14,6 +14,8 @@ export function InterviewRoundPage() {
   const [loadingFb, setLoadingFb] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showResumeModal, setShowResumeModal] = useState(false)
+  const [resumeModalUrl, setResumeModalUrl] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -107,9 +109,16 @@ export function InterviewRoundPage() {
                   {r.candidateId?.resumeUrl && (
                     <p>
                       <strong>Resume:</strong>{' '}
-                      <a href={fileUrl(r.candidateId.resumeUrl)}>
+                      <button
+                        type="button"
+                        className="link-strong"
+                        onClick={() => {
+                          setResumeModalUrl(fileUrl(r.candidateId.resumeUrl))
+                          setShowResumeModal(true)
+                        }}
+                      >
                         Open resume
-                      </a>
+                      </button>
                     </p>
                   )}
                   {loading && <p className="muted">Loading feedback…</p>}
@@ -145,3 +154,5 @@ export function InterviewRoundPage() {
     </div>
   )
 }
+
+export default InterviewRoundPage
