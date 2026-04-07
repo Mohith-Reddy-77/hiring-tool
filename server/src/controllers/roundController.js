@@ -33,13 +33,16 @@ async function create(req, res, next) {
         const templateRow = row.template_id ? await supa.getTemplateById(row.template_id) : null;
         // try to fetch feedback if any
         const feedbackResp = await client.from('feedback').select('*').eq('round_id', row.id).maybeSingle();
+        // fetch candidate details
+        const candidateResp = row.candidate_id ? await client.from('candidates').select('id,name,email,resume_path').eq('id', row.candidate_id).maybeSingle() : null;
+        const candidateObj = candidateResp && candidateResp.data ? { _id: candidateResp.data.id, name: candidateResp.data.name, email: candidateResp.data.email, resumeUrl: candidateResp.data.resume_path } : { _id: row.candidate_id };
         const resp = {
           _id: row.id,
           name: row.name,
           status: row.status,
           scheduledAt: row.scheduled_at,
           createdAt: row.created_at,
-          candidateId: row.candidate_id,
+          candidateId: candidateObj,
           interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
           templateId: templateRow || null,
           feedback: feedbackResp && feedbackResp.data ? feedbackResp.data : null,
@@ -142,17 +145,19 @@ async function myRounds(req, res, next) {
     if (client) {
       const { data, error } = await client.from('interview_rounds').select('*').eq('interviewer_id', req.userId).order('scheduled_at', { ascending: true }).limit(200);
       if (error) return res.status(500).json({ message: 'Failed to list rounds' });
-      const mapped = await Promise.all((data || []).map(async (r) => {
+      const mapped = await Promise.all((rows || []).map(async (r) => {
         const interviewerResp = r.interviewer_id ? await client.from('users').select('id,name,email,role').eq('id', r.interviewer_id).maybeSingle() : null;
         const templateRow = r.template_id ? await supa.getTemplateById(r.template_id) : null;
         const feedbackResp = await client.from('feedback').select('*').eq('round_id', r.id).maybeSingle();
+        const candidateResp = r.candidate_id ? await client.from('candidates').select('id,name,email,resume_path').eq('id', r.candidate_id).maybeSingle() : null;
+        const candidateObj = candidateResp && candidateResp.data ? { _id: candidateResp.data.id, name: candidateResp.data.name, email: candidateResp.data.email, resumeUrl: candidateResp.data.resume_path } : { _id: r.candidate_id };
         return {
           _id: r.id,
           name: r.name,
           status: r.status,
           scheduledAt: r.scheduled_at,
           createdAt: r.created_at,
-          candidateId: r.candidate_id,
+          candidateId: candidateObj,
           interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
           templateId: templateRow || null,
           feedback: feedbackResp && feedbackResp.data ? feedbackResp.data : null,
