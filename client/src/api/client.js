@@ -20,4 +20,22 @@ export function setAuthToken(token) {
   }
 }
 
+// Global response handler: if server returns 401, clear local auth and redirect to login
+api.interceptors.response.use(
+  (resp) => resp,
+  (err) => {
+    if (err && err.response && err.response.status === 401) {
+      try {
+        localStorage.removeItem('hiring_token')
+        localStorage.removeItem('hiring_user')
+      } catch (e) {}
+      // navigate to login page
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(err)
+  }
+)
+
 export default api

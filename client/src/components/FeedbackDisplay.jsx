@@ -125,7 +125,6 @@ export function FeedbackDisplay({ structure, ratings = {}, notes = '', submitted
     notes &&
     String(notes).trim() &&
     !fields.some((f) => f.key === 'notes' && f.type === 'textarea')
-
   return (
     <div className={`feedback-display ${compact ? 'feedback-display--compact' : ''}`}>
       {submittedAt && (
@@ -151,7 +150,20 @@ export function FeedbackDisplay({ structure, ratings = {}, notes = '', submitted
           )}
         </div>
       )}
-      {!ratingEntries.length && !textEntries.length && !showStandaloneNotes && (
+
+      {/* When a template exists but no ratings/text have been provided yet, show a simple preview of fields */}
+      {fields.length > 0 && ratingEntries.length === 0 && textEntries.length === 0 && !showStandaloneNotes && (
+        <div className="fd-template-preview">
+          {fields.map((f) => (
+            <div key={f.key} className="fd-template-row">
+              <div className="fd-template-label">{f.label || humanizeKey(f.key)}</div>
+              <div className="fd-template-type muted">{f.type}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!fields.length && !ratingEntries.length && !textEntries.length && !showStandaloneNotes && (
         <p className="fd-empty muted">No scored fields to show.</p>
       )}
     </div>
