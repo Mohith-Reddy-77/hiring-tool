@@ -10,71 +10,48 @@ async function create(req, res, next) {
   try {
     const { candidateId, interviewerId, templateId, name, status, scheduledAt } = req.body;
     if (!candidateId || !interviewerId || !templateId || !name) {
-      return res
-        .status(400)
-        .json({ message: 'candidateId, interviewerId, templateId, and name are required' });
+      return res.status(400).json({ message: 'candidateId, interviewerId, templateId, and name are required' });
     }
-    // Map provided Mongo IDs to Supabase IDs
-    const [candidate, interviewer, template] = await Promise.all([
-      Candidate.findById(candidateId),
-      User.findById(interviewerId),
-      Template.findById(templateId),
-    ]);
-    if (!candidate) return res.status(404).json({ message: 'Candidate not found' });
-    if (!interviewer || interviewer.role !== 'INTERVIEWER') {
-      return res.status(400).json({ message: 'interviewerId must be an INTERVIEWER user' });
-    }
-    if (!template) return res.status(404).json({ message: 'Template not found' });
-
     const client = supa.getClient && supa.getClient();
     if (client) {
+      // assume incoming IDs are Supabase UUIDs
       const payload = {
-        candidate_id: candidate.supabaseId || null,
-        interviewer_id: interviewer.supabaseId || null,
-        template_id: template.supabaseId || null,
+        candidate_id: candidateId,
+        interviewer_id: interviewerId,
+        template_id: templateId,
         name,
         status: status || 'PENDING',
         scheduled_at: scheduledAt ? new Date(scheduledAt) : null,
         created_at: new Date(),
       };
-      if (!payload.candidate_id) return res.status(400).json({ message: 'Candidate not synced to Supabase yet' });
-      if (!payload.interviewer_id) return res.status(400).json({ message: 'Interviewer not synced to Supabase yet' });
-      if (!payload.template_id) return res.status(400).json({ message: 'Template not synced to Supabase yet' });
       try {
         const data = await supa.insertRound(payload);
         if (!data || !data.length) return res.status(500).json({ message: 'Supabase insert failed' });
         const row = data[0];
-        // create local Mongo mapping referencing original Mongo ids
-        let mongo = await InterviewRound.findOne({ supabaseId: row.id });
-        if (!mongo) {
-          mongo = await InterviewRound.create({
-            candidateId,
-            interviewerId,
-            templateId,
-            name: row.name,
-            status: row.status,
-            scheduledAt: row.scheduled_at,
-            supabaseId: row.id,
-            createdAt: row.created_at,
-          });
-        } else {
-          mongo.name = row.name;
-          mongo.status = row.status;
-          mongo.scheduledAt = row.scheduled_at;
-          await mongo.save();
-        }
-        const populated = await InterviewRound.findById(mongo._id)
-          .populate('candidateId', 'name email roleApplied status resumeUrl')
-          .populate('interviewerId', 'name email role')
-          .populate('templateId');
-        return res.status(201).json(populated);
+        // resolve interviewer and template details for client-friendly response
+        const interviewerResp = await client.from('users').select('id,name,email,role').eq('id', row.interviewer_id).maybeSingle();
+        const templateRow = row.template_id ? await supa.getTemplateById(row.template_id) : null;
+        // try to fetch feedback if any
+        const feedbackResp = await client.from('feedback').select('*').eq('round_id', row.id).maybeSingle();
+        const resp = {
+          _id: row.id,
+          name: row.name,
+          status: row.status,
+          scheduledAt: row.scheduled_at,
+          createdAt: row.created_at,
+          candidateId: row.candidate_id,
+          interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
+          templateId: templateRow || null,
+          feedback: feedbackResp && feedbackResp.data ? feedbackResp.data : null,
+        };
+        return res.status(201).json(resp);
       } catch (e) {
         console.warn('Supabase insertRound failed:', e?.message || e);
         return res.status(500).json({ message: 'Round create failed' });
       }
     }
 
-    // Fallback to Mongo-only flow
+    // fallback to Mongo-only flow (unchanged)
     const round = await InterviewRound.create({
       candidateId,
       interviewerId,
@@ -106,55 +83,33 @@ async function create(req, res, next) {
 async function listForCandidate(req, res, next) {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid candidate id' });
-    }
     const client = supa.getClient && supa.getClient();
-    const candidate = await Candidate.findById(id).lean();
-    if (!candidate) return res.status(404).json({ message: 'Candidate not found' });
-    if (client && candidate.supabaseId) {
-      // fetch rounds from Supabase
-      const rows = await supa.listRoundsForCandidate(candidate.supabaseId, 200);
-      const mappedRounds = await Promise.all(
+    // If Supabase client is configured, treat id as Supabase candidate id
+    if (client) {
+      const rows = await supa.listRoundsForCandidate(id, 200);
+      if (!rows) return res.json([]);
+      const mapped = await Promise.all(
         (rows || []).map(async (r) => {
-          // find or create local mapping
-          let mongoDoc = await InterviewRound.findOne({ supabaseId: r.id });
-          if (!mongoDoc) {
-            // resolve interviewer and template Mongo ids via supabaseId mapping
-            const interviewer = await User.findOne({ supabaseId: r.interviewer_id });
-            const template = await Template.findOne({ supabaseId: r.template_id });
-            mongoDoc = await InterviewRound.create({
-              candidateId: id,
-              interviewerId: interviewer ? interviewer._id : null,
-              templateId: template ? template._id : null,
-              name: r.name,
-              status: r.status,
-              scheduledAt: r.scheduled_at,
-              supabaseId: r.id,
-              createdAt: r.created_at,
-            });
-          }
-          // return populated round so client has interviewer/template objects
-          const populated = await InterviewRound.findById(mongoDoc._id)
-            .populate('interviewerId', 'name email role')
-            .populate('templateId')
-            .lean();
-          return populated;
+          const interviewerResp = r.interviewer_id ? await client.from('users').select('id,name,email,role').eq('id', r.interviewer_id).maybeSingle() : null;
+          const templateRow = r.template_id ? await supa.getTemplateById(r.template_id) : null;
+          const feedbackResp = await client.from('feedback').select('*').eq('round_id', r.id).maybeSingle();
+          return {
+            _id: r.id,
+            name: r.name,
+            status: r.status,
+            scheduledAt: r.scheduled_at,
+            createdAt: r.created_at,
+            candidateId: r.candidate_id,
+            interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
+            templateId: templateRow || null,
+            feedback: feedbackResp && feedbackResp.data ? feedbackResp.data : null,
+          };
         })
       );
-
-      const roundIds = mappedRounds.map((r) => r._id);
-      const feedbackDocs =
-        roundIds.length > 0
-          ? await Feedback.find({ roundId: { $in: roundIds } })
-              .select('roundId ratings notes submittedAt createdAt')
-              .lean()
-          : [];
-      const feedbackByRound = new Map(feedbackDocs.map((f) => [f.roundId.toString(), f]));
-      const roundsWithFeedback = mappedRounds.map((r) => ({ ...r, feedback: feedbackByRound.get(r._id.toString()) || null }));
-      return res.json(roundsWithFeedback);
+      return res.json(mapped);
     }
 
+    // fallback to Mongo-only flow
     const rounds = await InterviewRound.find({ candidateId: id })
       .populate('interviewerId', 'name email role')
       .populate('templateId')
@@ -183,7 +138,30 @@ async function listForCandidate(req, res, next) {
 
 async function myRounds(req, res, next) {
   try {
-    // Use local mappings for now (they are created when rounds are inserted into Supabase)
+    const client = supa.getClient && supa.getClient();
+    if (client) {
+      const { data, error } = await client.from('interview_rounds').select('*').eq('interviewer_id', req.userId).order('scheduled_at', { ascending: true }).limit(200);
+      if (error) return res.status(500).json({ message: 'Failed to list rounds' });
+      const mapped = await Promise.all((data || []).map(async (r) => {
+        const interviewerResp = r.interviewer_id ? await client.from('users').select('id,name,email,role').eq('id', r.interviewer_id).maybeSingle() : null;
+        const templateRow = r.template_id ? await supa.getTemplateById(r.template_id) : null;
+        const feedbackResp = await client.from('feedback').select('*').eq('round_id', r.id).maybeSingle();
+        return {
+          _id: r.id,
+          name: r.name,
+          status: r.status,
+          scheduledAt: r.scheduled_at,
+          createdAt: r.created_at,
+          candidateId: r.candidate_id,
+          interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
+          templateId: templateRow || null,
+          feedback: feedbackResp && feedbackResp.data ? feedbackResp.data : null,
+        };
+      }));
+      return res.json(mapped);
+    }
+
+    // fallback to local mappings
     const rounds = await InterviewRound.find({ interviewerId: req.userId })
       .populate('candidateId', 'name email roleApplied status resumeUrl')
       .populate('templateId')
@@ -196,14 +174,60 @@ async function myRounds(req, res, next) {
 
 async function update(req, res, next) {
   try {
+    // Try Supabase-first update flow
+    const client = supa.getClient && supa.getClient();
+    if (client) {
+      const row = await supa.getRoundById(req.params.id);
+      if (!row) return res.status(404).json({ message: 'Round not found' });
+      const isRecruiter = req.userRole === 'RECRUITER';
+      const isAssignedInterviewer = req.userRole === 'INTERVIEWER' && row.interviewer_id === req.userId;
+      if (!isRecruiter && !isAssignedInterviewer) return res.status(403).json({ message: 'Forbidden' });
+
+      const { name, status, scheduledAt, interviewerId, templateId } = req.body;
+      const updatesPayload = {};
+      if (name !== undefined) updatesPayload.name = name;
+      if (status !== undefined) updatesPayload.status = status;
+      if (scheduledAt !== undefined) updatesPayload.scheduled_at = scheduledAt ? new Date(scheduledAt) : null;
+      if (interviewerId !== undefined) {
+        // validate interviewer exists
+        const uResp = await client.from('users').select('id,role,name,email').eq('id', interviewerId).maybeSingle();
+        if (!uResp || uResp.error || !uResp.data) return res.status(400).json({ message: 'interviewer not found' });
+        if (uResp.data.role !== 'INTERVIEWER') return res.status(400).json({ message: 'interviewerId must be an INTERVIEWER' });
+        updatesPayload.interviewer_id = interviewerId;
+      }
+      if (templateId !== undefined) {
+        const t = await supa.getTemplateById(templateId);
+        if (!t) return res.status(404).json({ message: 'Template not found' });
+        updatesPayload.template_id = templateId;
+      }
+
+      const data = await supa.updateRoundById(req.params.id, updatesPayload);
+      if (!data || !data.length) return res.status(500).json({ message: 'Supabase update failed' });
+      const newRow = data[0];
+      const interviewerResp = newRow.interviewer_id ? await client.from('users').select('id,name,email,role').eq('id', newRow.interviewer_id).maybeSingle() : null;
+      const templateRow = newRow.template_id ? await supa.getTemplateById(newRow.template_id) : null;
+      const feedbackResp = await client.from('feedback').select('*').eq('round_id', newRow.id).maybeSingle();
+      const resp = {
+        _id: newRow.id,
+        name: newRow.name,
+        status: newRow.status,
+        scheduledAt: newRow.scheduled_at,
+        createdAt: newRow.created_at,
+        candidateId: newRow.candidate_id,
+        interviewerId: interviewerResp && interviewerResp.data ? { _id: interviewerResp.data.id, name: interviewerResp.data.name, email: interviewerResp.data.email, role: interviewerResp.data.role } : null,
+        templateId: templateRow || null,
+        feedback: feedbackResp && feedbackResp.data ? feedbackResp.data : null,
+      };
+      return res.json(resp);
+    }
+
+    // fallback to Mongo update flow
     const round = await InterviewRound.findById(req.params.id);
     if (!round) {
       return res.status(404).json({ message: 'Round not found' });
     }
     const isRecruiter = req.userRole === 'RECRUITER';
-    const isAssignedInterviewer =
-      req.userRole === 'INTERVIEWER' && round.interviewerId.toString() === req.userId;
-
+    const isAssignedInterviewer = req.userRole === 'INTERVIEWER' && round.interviewerId.toString() === req.userId;
     if (!isRecruiter && !isAssignedInterviewer) {
       return res.status(403).json({ message: 'Forbidden' });
     }
@@ -227,38 +251,6 @@ async function update(req, res, next) {
       }
     } else {
       if (status !== undefined) round.status = status;
-    }
-
-    const client = supa.getClient && supa.getClient();
-    if (client && round.supabaseId) {
-      // update in Supabase
-      const updatesPayload = {};
-      if (name !== undefined) updatesPayload.name = name;
-      if (status !== undefined) updatesPayload.status = status;
-      if (scheduledAt !== undefined) updatesPayload.scheduled_at = scheduledAt ? new Date(scheduledAt) : null;
-      if (interviewerId !== undefined) {
-        const u = await User.findById(interviewerId);
-        if (!u) return res.status(400).json({ message: 'interviewer not found' });
-        updatesPayload.interviewer_id = u.supabaseId || null;
-      }
-      if (templateId !== undefined) {
-        const t = await Template.findById(templateId);
-        if (!t) return res.status(404).json({ message: 'Template not found' });
-        updatesPayload.template_id = t.supabaseId || null;
-      }
-      const data = await supa.updateRoundById(round.supabaseId, updatesPayload);
-      if (!data || !data.length) return res.status(500).json({ message: 'Supabase update failed' });
-      const row = data[0];
-      // sync local mapping
-      round.name = row.name;
-      round.status = row.status;
-      round.scheduledAt = row.scheduled_at;
-      await round.save();
-      const populated = await InterviewRound.findById(round._id)
-        .populate('candidateId', 'name email roleApplied status resumeUrl')
-        .populate('interviewerId', 'name email role')
-        .populate('templateId');
-      return res.json(populated);
     }
 
     await round.save();

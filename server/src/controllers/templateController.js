@@ -24,18 +24,22 @@ async function create(req, res, next) {
         const data = await supa.insertTemplate(payload);
         if (!data || !data.length) return res.status(500).json({ message: 'Supabase insert failed' });
         const row = data[0];
-        // create local mapping document for compatibility and return its Mongo _id
-        let mongo = await Template.findOne({ supabaseId: row.id });
-        if (!mongo) {
-          mongo = await Template.create({ name: row.name, structure: row.structure, supabaseId: row.id, createdAt: row.created_at, createdBy: userId, createdBySupabaseId: user ? user.supabaseId || null : null });
-        } else {
-          mongo.name = row.name;
-          mongo.structure = row.structure;
-          if (userId) mongo.createdBy = userId;
-          if (user && user.supabaseId) mongo.createdBySupabaseId = user.supabaseId;
-          await mongo.save();
-        }
-        return res.status(201).json(mongo);
+          // create or update local mapping for compatibility, but return Supabase-centric id
+          try {
+            let mongo = await Template.findOne({ supabaseId: row.id });
+            if (!mongo) {
+              await Template.create({ name: row.name, structure: row.structure, supabaseId: row.id, createdAt: row.created_at, createdBy: userId, createdBySupabaseId: user ? user.supabaseId || null : null });
+            } else {
+              mongo.name = row.name;
+              mongo.structure = row.structure;
+              if (userId) mongo.createdBy = userId;
+              if (user && user.supabaseId) mongo.createdBySupabaseId = user.supabaseId;
+              await mongo.save();
+            }
+          } catch (e) {
+            console.warn('Template local mapping failed:', e?.message || e);
+          }
+          return res.status(201).json({ _id: row.id, name: row.name, structure: row.structure, supabaseId: row.id, createdAt: row.created_at });
       } catch (e) {
         console.warn('Supabase insertTemplate failed:', e?.message || e);
         return res.status(500).json({ message: 'Template create failed' });
@@ -72,14 +76,20 @@ async function list(req, res, next) {
       } else {
         rows = await supa.listTemplates(200);
       }
-      const mapped = await Promise.all((rows || []).map(async (r) => {
-        let mongo = await Template.findOne({ supabaseId: r.id }).lean();
-        if (!mongo) {
-          const created = await Template.create({ name: r.name, structure: r.structure, supabaseId: r.id, createdAt: r.created_at, createdBy: r.created_by_mongo_id || null, createdBySupabaseId: r.created_by_supabase_id || null });
-          mongo = created.toObject();
+      const mapped = (rows || []).map((r) => ({ _id: r.id, name: r.name, structure: r.structure, supabaseId: r.id, createdAt: r.created_at }));
+      // attempt to ensure local mappings exist (best-effort)
+      (async () => {
+        try {
+          for (const r of rows || []) {
+            const exists = await Template.findOne({ supabaseId: r.id }).lean();
+            if (!exists) {
+              await Template.create({ name: r.name, structure: r.structure, supabaseId: r.id, createdAt: r.created_at, createdBy: r.created_by_mongo_id || null, createdBySupabaseId: r.created_by_supabase_id || null });
+            }
+          }
+        } catch (e) {
+          console.warn('Template mapping background sync failed:', e?.message || e);
         }
-        return { _id: mongo._id, name: r.name, structure: r.structure, supabaseId: r.id, createdAt: r.created_at };
-      }));
+      })();
       return res.json(mapped);
     }
     const templates = await Template.find().sort({ createdAt: -1 });

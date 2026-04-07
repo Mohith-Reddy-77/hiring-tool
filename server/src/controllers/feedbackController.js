@@ -8,6 +8,28 @@ async function create(req, res, next) {
     if (!roundId || ratings === undefined) {
       return res.status(400).json({ message: 'roundId and ratings are required' });
     }
+    const client = supa.getClient && supa.getClient();
+    const isUUID = (v) => typeof v === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(v);
+    if (client && isUUID(roundId)) {
+      const roundRow = await supa.getRoundById(roundId);
+      if (!roundRow) return res.status(404).json({ message: 'Round not found' });
+      if (roundRow.interviewer_id !== req.userId) return res.status(403).json({ message: 'Only the assigned interviewer can submit feedback' });
+      const existingFb = await client.from('feedback').select('*').eq('round_id', roundId).maybeSingle();
+      if (existingFb && existingFb.data) return res.status(409).json({ message: 'Feedback already submitted for this round' });
+      // insert into Supabase
+      const payload = { roundId, ratings, notes: notes || '', submittedAt: new Date() };
+      const inserted = await supa.insertFeedback({ roundId, ratings, notes: notes || '', submittedAt: new Date() });
+      if (!inserted || !inserted.length) return res.status(500).json({ message: 'Feedback insert failed' });
+      // mark round completed
+      try {
+        await supa.updateRoundById(roundId, { status: 'COMPLETED' });
+      } catch (e) {
+        console.warn('Supabase update round status failed:', e?.message || e);
+      }
+      return res.status(201).json(inserted[0]);
+    }
+
+    // fallback to Mongo flow
     const round = await InterviewRound.findById(roundId);
     if (!round) {
       return res.status(404).json({ message: 'Round not found' });
@@ -47,6 +69,20 @@ async function create(req, res, next) {
 
 async function getForRound(req, res, next) {
   try {
+    const client = supa.getClient && supa.getClient();
+    const id = req.params.id;
+    const isUUID = (v) => typeof v === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(v);
+    if (client && isUUID(id)) {
+      const roundRow = await supa.getRoundById(id);
+      if (!roundRow) return res.status(404).json({ message: 'Round not found' });
+      const isRecruiter = req.userRole === 'RECRUITER';
+      const isAssigned = req.userRole === 'INTERVIEWER' && roundRow.interviewer_id === req.userId;
+      if (!isRecruiter && !isAssigned) return res.status(403).json({ message: 'Forbidden' });
+      const fb = await client.from('feedback').select('*').eq('round_id', id).maybeSingle();
+      if (!fb || !fb.data) return res.status(404).json({ message: 'No feedback yet' });
+      return res.json(fb.data);
+    }
+
     const round = await InterviewRound.findById(req.params.id);
     if (!round) {
       return res.status(404).json({ message: 'Round not found' });
