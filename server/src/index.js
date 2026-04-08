@@ -29,22 +29,31 @@ if (!allowAll && allowedClientUrls.length === 0) {
   console.warn('No CLIENT_URL(S) configured; enabling permissive CORS fallback. Set CLIENT_URLS or CORS_ALLOW_ALL in production.');
   allowAll = true;
 }
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (curl, server-to-server)
-      if (!origin) return callback(null, true);
-      if (allowAll) return callback(null, true);
-      // If a single CLIENT_URL was provided via env, include it in the list
-      if (allowedClientUrls.length === 0) return callback(null, false);
-      if (allowedClientUrls.includes(origin) || allowedClientUrls.includes(origin.replace(/https?:\/\//, '')))
-        return callback(null, true);
-      // Not allowed
-      return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-  })
-);
+// Custom CORS middleware: set Access-Control-Allow-* headers for allowed origins
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  // Allow requests with no origin (curl, server-to-server)
+  const noOrigin = !origin;
+  const originNormalized = origin ? origin.replace(/^https?:\/\//, '') : '';
+  const originAllowed = allowAll || noOrigin || allowedClientUrls.includes(origin) || allowedClientUrls.includes(originNormalized);
+
+  if (originAllowed) {
+    // Reflect the request origin when possible to support credentials
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  } else {
+    console.warn('CORS: rejected origin', origin);
+  }
+
+  // Respond to preflight immediately so browsers get the headers.
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  next();
+});
 app.use(express.json());
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
