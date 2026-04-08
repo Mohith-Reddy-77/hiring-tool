@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { templatesApi } from '../api/hiringApi'
 import { buildStructureFromRows } from '../lib/templateFields'
@@ -44,6 +45,8 @@ export function CreateTemplate() {
     return { ratings, notes }
   }, [structurePreview])
 
+  const { user } = useAuth()
+
   useEffect(() => {
     let mounted = true
     const load = async () => {
@@ -61,7 +64,7 @@ export function CreateTemplate() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [user?.role])
 
   const useTemplate = (t) => {
     if (!t || !t.structure) return

@@ -68,7 +68,9 @@ async function me(req, res, next) {
     const { data, error } = await client.from('users').select('id, name, email, role').eq('id', supaId).maybeSingle();
     if (error) return res.status(500).json({ message: 'Failed to fetch profile' });
     if (!data) return res.status(404).json({ message: 'User not found' });
-    res.json({ user: { id: data.id, name: data.name, email: data.email, role: data.role } });
+    // Sign a fresh token based on the authoritative Supabase role so clients can refresh their JWT after role changes
+    const token = signToken(data.id, data.role);
+    res.json({ token, user: { id: data.id, name: data.name, email: data.email, role: data.role } });
   } catch (e) {
     next(e);
   }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { candidatesApi, templatesApi, usersApi, roundsApi } from '../api/hiringApi'
 import { FeedbackDisplay } from '../components/FeedbackDisplay'
@@ -53,9 +54,11 @@ export function CandidateDetail() {
     }
   }
 
+  const { user } = useAuth()
+
   useEffect(() => {
     load()
-  }, [id])
+  }, [id, user?.role])
 
   const saveStatus = async (e) => {
     e.preventDefault()

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { usersApi } from '../api/hiringApi'
+import { usersApi, authApi } from '../api/hiringApi'
+import { useAuth } from '../context/AuthContext'
 import './Page.css'
 
 export function AdminDashboard() {
@@ -12,13 +13,22 @@ export function AdminDashboard() {
   const [confirmMessage, setConfirmMessage] = useState('')
 
   useEffect(() => {
-    setLoading(true)
-    usersApi
-      .list()
-      .then((res) => setUsers(res.data || []))
-      .catch((e) => setError(e.response?.data?.message || e.message))
-      .finally(() => setLoading(false))
+    fetchUsers()
   }, [])
+
+  async function fetchUsers() {
+    setLoading(true)
+    try {
+      const res = await usersApi.list()
+      setUsers(res.data || [])
+    } catch (e) {
+      setError(e.response?.data?.message || e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const { user: currentUser, login } = useAuth()
 
   function openConfirm(userId, role, message) {
     const u = users.find((x) => x.id === userId)
@@ -42,7 +52,22 @@ export function AdminDashboard() {
       setConfirmOpen(false)
       if (!confirmUser || !confirmRole) return
       await usersApi.assignRole(confirmUser.id, { role: confirmRole })
-      setUsers((s) => s.map((u) => (u.id === confirmUser.id ? { ...u, role: confirmRole } : u)))
+      // Refresh listing to reflect server state
+      await fetchUsers()
+      // If the changed user is the current user, refresh their profile so role-based views update immediately
+      try {
+        if (currentUser && confirmUser && String(currentUser.id) === String(confirmUser.id)) {
+          const meRes = await authApi.me()
+          if (meRes?.data?.user) {
+            const newToken = meRes.data.token || sessionStorage.getItem('hiring_token')
+            // update auth context with fresh profile and token
+            login(newToken, meRes.data.user)
+          }
+        }
+      } catch (refreshErr) {
+        // non-fatal
+        console.warn('Failed to refresh current user profile after role change', refreshErr)
+      }
       setConfirmUser(null)
       setConfirmRole(null)
       setConfirmMessage('')

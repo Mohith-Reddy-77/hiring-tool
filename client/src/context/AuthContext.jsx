@@ -27,10 +27,20 @@ export function AuthProvider({ children }) {
       .me()
       .then((res) => {
         if (!mounted) return
-        if (res && res.data && res.data.user) {
-          sessionStorage.setItem(USER_KEY, JSON.stringify(res.data.user))
-          // update local state to reflect any role changes made by admin
-          setUser(res.data.user)
+        if (res && res.data) {
+          // res.data may include a refreshed token and user profile
+          const newToken = res.data.token
+          const profile = res.data.user
+          if (newToken) {
+            sessionStorage.setItem(STORAGE_KEY, newToken)
+            setTokenState(newToken)
+            setAuthToken(newToken)
+          }
+          if (profile) {
+            sessionStorage.setItem(USER_KEY, JSON.stringify(profile))
+            // update local state to reflect any role changes made by admin
+            setUser(profile)
+          }
         }
       })
       .catch(() => {
