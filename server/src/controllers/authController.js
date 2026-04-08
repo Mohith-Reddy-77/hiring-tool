@@ -6,6 +6,9 @@ function signToken(subjectId, role) {
   return jwt.sign({ sub: String(subjectId), role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
+// Exported for use by external auth flows (Google controller)
+module.exports = { signToken, register, login, me };
+
 async function register(req, res, next) {
   try {
     const { name, email, password } = req.body;
@@ -76,4 +79,8 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { register, login, me };
+// Backwards-compatible: ensure default export shape still works for imports
+module.exports.register = register;
+module.exports.login = login;
+module.exports.me = me;
+

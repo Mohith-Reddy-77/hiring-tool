@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const { connectDb } = require('./config/db');
 
@@ -55,6 +56,8 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json());
+// Parse cookies for OAuth state validation
+app.use(cookieParser());
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 // If a built client exists at ../client/dist, serve it as a static single-page app

@@ -59,6 +59,32 @@ export function AuthProvider({ children }) {
     setAuthToken(newToken)
   }, [])
 
+  // Listen for OAuth popup messages
+  useEffect(() => {
+    function onMessage(e) {
+      try {
+        // Accept messages from either the frontend origin or the backend API origin.
+        const frontendOrigin = window.location.origin
+        const apiBase = (import.meta.env && import.meta.env.VITE_API_URL) || ''
+        const apiOrigin = apiBase ? new URL(apiBase).origin : 'http://localhost:5001'
+        const allowed = [frontendOrigin, apiOrigin]
+        if (!allowed.includes(e.origin)) {
+          // ignore unexpected origins
+          return
+        }
+        const { token: popupToken, user: popupUser } = e.data || {}
+        if (popupToken && popupUser) {
+          console.log('[Auth] Received OAuth popup message from', e.origin)
+          login(popupToken, popupUser)
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [login])
+
   const logout = useCallback(() => {
     sessionStorage.removeItem(STORAGE_KEY)
     sessionStorage.removeItem(USER_KEY)

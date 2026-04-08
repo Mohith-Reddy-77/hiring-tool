@@ -148,6 +148,19 @@ export function Login() {
             <button type="submit" className="btn primary" disabled={loading}>
               {loading ? '…' : mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
+            {mode === 'login' && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  // Open OAuth popup
+                  const popup = window.open(`${(import.meta.env && import.meta.env.VITE_API_URL) || ''}/api/auth/google`, 'google_oauth', 'width=500,height=600')
+                  if (!popup) setError('Popup blocked')
+                }}
+              >
+                Sign in with Google
+              </button>
+            )}
           </div>
         </form>
       </div>

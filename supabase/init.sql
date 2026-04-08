@@ -75,6 +75,10 @@ CREATE TABLE IF NOT EXISTS feedback (
 CREATE INDEX IF NOT EXISTS idx_interview_rounds_candidate ON interview_rounds(candidate_id);
 CREATE INDEX IF NOT EXISTS idx_interview_rounds_interviewer ON interview_rounds(interviewer_id);
 
+-- Add google_id column for OAuth provider mapping
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id text;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
+
 -- Create storage bucket for resumes (public). Requires "storage" extension available in Supabase.
 -- If you prefer private storage set the second arg to false.
 -- Run this line in the SQL editor or use the Storage API/CLI.
