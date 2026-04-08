@@ -15,9 +15,27 @@ const app = express();
 const PORT = Number(process.env.PORT) || 5001;
 
 const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+// Support multiple allowed client URLs (comma-separated) and a permissive mode.
+// In production, set CLIENT_URL to your deployed frontend (e.g. https://app.example.com)
+// or set CLIENT_URLS to a comma-separated list. For quick fixes set CORS_ALLOW_ALL=true.
+const allowedClientUrls = (process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const allowAll = String(process.env.CORS_ALLOW_ALL || 'false').toLowerCase() === 'true';
 app.use(
   cors({
-    origin: clientUrl,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowAll) return callback(null, true);
+      // If a single CLIENT_URL was provided via env, include it in the list
+      if (allowedClientUrls.length === 0) return callback(null, false);
+      if (allowedClientUrls.includes(origin) || allowedClientUrls.includes(origin.replace(/https?:\/\//, '')))
+        return callback(null, true);
+      // Not allowed
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   })
 );
