@@ -22,7 +22,13 @@ const allowedClientUrls = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
-const allowAll = String(process.env.CORS_ALLOW_ALL || 'false').toLowerCase() === 'true';
+let allowAll = String(process.env.CORS_ALLOW_ALL || 'false').toLowerCase() === 'true';
+// If no allowed client URLs are configured, enable a permissive fallback to avoid
+// CORS preflight failures in deployed environments until envs are set.
+if (!allowAll && allowedClientUrls.length === 0) {
+  console.warn('No CLIENT_URL(S) configured; enabling permissive CORS fallback. Set CLIENT_URLS or CORS_ALLOW_ALL in production.');
+  allowAll = true;
+}
 app.use(
   cors({
     origin: function (origin, callback) {
