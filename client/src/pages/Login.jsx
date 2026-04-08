@@ -5,20 +5,22 @@ import { useAuth } from '../context/AuthContext'
 import './Page.css'
 
 export function Login() {
-  const { login, isAuthenticated } = useAuth()
+  const { login, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState('login')
   const [name, setName] = useState('')
-  const [role, setRole] = useState('RECRUITER')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const location = useLocation()
 
   if (isAuthenticated) {
-    // If already authenticated, prefer returning to the originally requested page
+    // If already authenticated, prefer sending admins to /admin, pending users to /pending,
+    // otherwise return to the originally requested page or home.
+    if (user?.role === 'ADMIN') return <Navigate to="/admin" replace />
+    if (user?.role === 'PENDING') return <Navigate to="/pending" replace />
     const dest = location.state?.from?.pathname || '/'
     return <Navigate to={dest} replace />
   }
@@ -28,14 +30,26 @@ export function Login() {
     setError('')
     setLoading(true)
     try {
+      let data
       if (mode === 'login') {
-        const { data } = await authApi.login({ email, password })
+        ({ data } = await authApi.login({ email, password }))
         login(data.token, data.user)
       } else {
-        const { data } = await authApi.register({ name, email, password, role })
+        // Do not send a role on registration; server will create account with PENDING role
+        ({ data } = await authApi.register({ name, email, password }))
         login(data.token, data.user)
       }
-      // Navigate back to the original requested page if provided, otherwise home
+      // If the user is an ADMIN, always send them to the admin dashboard.
+      if (data?.user?.role === 'ADMIN') {
+        navigate('/admin', { replace: true })
+        return
+      }
+      // If the user is pending approval, send them to the pending page
+      if (data?.user?.role === 'PENDING') {
+        navigate('/pending', { replace: true })
+        return
+      }
+      // Otherwise navigate back to the original requested page if provided, otherwise home
       const dest = location.state?.from?.pathname || '/'
       navigate(dest, { replace: true })
     } catch (err) {
@@ -96,24 +110,13 @@ export function Login() {
 
         <form className="card form-card auth-card" onSubmit={handleSubmit}>
           <h2 className="auth-card-title">{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
-          <p className="muted auth-card-sub">
-            {mode === 'login'
-              ? 'Use your email and password to access the pipeline.'
-              : 'Choose a role. Recruiters manage profiles; interviewers submit feedback.'}
-          </p>
+          <p className="muted auth-card-sub">{mode === 'login' ? 'Use your email and password to access the pipeline.' : 'An administrator will assign your role after approval.'}</p>
 
           {mode === 'register' && (
             <>
               <label>
                 Full name
                 <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Priya N." />
-              </label>
-              <label>
-                Role
-                <select value={role} onChange={(e) => setRole(e.target.value)}>
-                  <option value="RECRUITER">Recruiter</option>
-                  <option value="INTERVIEWER">Interviewer</option>
-                </select>
               </label>
             </>
           )}

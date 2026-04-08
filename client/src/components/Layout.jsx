@@ -25,6 +25,7 @@ export function Layout() {
                 </>
               )}
               {user?.role === 'INTERVIEWER' && <Link to="/my-rounds">My rounds</Link>}
+              {user?.role === 'ADMIN' && <Link to="/admin">Admin</Link>}
               <span className="user-pill">
                 {user?.name} ({user?.role})
               </span>

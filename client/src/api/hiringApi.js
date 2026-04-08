@@ -3,6 +3,7 @@ import api from './client'
 export const authApi = {
   login: (body) => api.post('/auth/login', body),
   register: (body) => api.post('/auth/register', body),
+  me: () => api.get('/auth/me'),
 }
 
 export const candidatesApi = {
@@ -39,4 +40,6 @@ export const feedbackApi = {
 
 export const usersApi = {
   interviewers: () => api.get('/users/interviewers'),
+  list: () => api.get('/users'),
+  assignRole: (id, body) => api.post(`/users/${id}/role`, body),
 }

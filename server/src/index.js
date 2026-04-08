@@ -24,6 +24,8 @@ app.use(
 app.use(express.json());
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
+// If a built client exists at ../client/dist, serve it as a static single-page app
+const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
 // Serve file requests: prefer local uploads, otherwise proxy/redirect to Supabase storage
 app.get('/files/:file(*)', async (req, res, next) => {
   try {
@@ -70,9 +72,22 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Root redirect: redirect to the client app (set via CLIENT_URL env)
 app.get('/', (req, res) => {
+  if (fs.existsSync(clientDist)) {
+    return res.sendFile(path.join(clientDist, 'index.html'));
+  }
   const redirectTo = process.env.CLIENT_URL || 'https://example.com';
   return res.redirect(redirectTo);
 });
+
+// If client build exists, serve static assets and fall back to index.html for SPA routes
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    // Allow API and file routes to continue to their handlers
+    if (req.path.startsWith('/api') || req.path.startsWith('/files') || req.path === '/health') return next();
+    return res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 app.use((err, req, res, next) => {
   if (err.name === 'MulterError') {
     return res.status(400).json({ message: err.message || 'File upload error' });

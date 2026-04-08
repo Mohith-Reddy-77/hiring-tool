@@ -8,16 +8,18 @@ function signToken(subjectId, role) {
 
 async function register(req, res, next) {
   try {
-    const { name, email, password, role } = req.body;
-    if (!name || !email || !password || !role) {
-      return res.status(400).json({ message: 'name, email, password, and role are required' });
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'name, email, and password are required' });
     }
     // Hash password first
     const hashed = await bcrypt.hash(password, 10);
     // Create user in Supabase (primary)
     const client = supa.getClient && supa.getClient();
     if (!client) return res.status(500).json({ message: 'Supabase client not configured' });
-    const payload = { name, email: email.toLowerCase(), role, password_hash: hashed, created_at: new Date() };
+    // Do NOT trust client-supplied role. New registrations receive the default PENDING role
+    // so an admin must approve and assign a role before the user can access protected areas.
+    const payload = { name, email: email.toLowerCase(), role: 'PENDING', password_hash: hashed, created_at: new Date() };
     const { data, error } = await client.from('users').upsert(payload).select();
     if (error || !data || !data.length) {
       console.warn('Supabase upsert user error:', error);
@@ -57,4 +59,19 @@ async function login(req, res, next) {
   }
 }
 
-module.exports = { register, login };
+async function me(req, res, next) {
+  try {
+    const client = supa.getClient && supa.getClient();
+    if (!client) return res.status(500).json({ message: 'Supabase client not configured' });
+    const supaId = req.userId;
+    if (!supaId) return res.status(401).json({ message: 'Authentication required' });
+    const { data, error } = await client.from('users').select('id, name, email, role').eq('id', supaId).maybeSingle();
+    if (error) return res.status(500).json({ message: 'Failed to fetch profile' });
+    if (!data) return res.status(404).json({ message: 'User not found' });
+    res.json({ user: { id: data.id, name: data.name, email: data.email, role: data.role } });
+  } catch (e) {
+    next(e);
+  }
+}
+
+module.exports = { register, login, me };

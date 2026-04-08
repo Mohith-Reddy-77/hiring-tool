@@ -9,6 +9,8 @@ import { CandidateNew } from './pages/CandidateNew'
 import { CandidateDetail } from './pages/CandidateDetail'
 import { CreateTemplate } from './pages/CreateTemplate'
 import { InterviewRoundPage } from './pages/InterviewRoundPage'
+import { AdminDashboard } from './pages/AdminDashboard'
+import { WaitingApproval } from './pages/WaitingApproval'
 
 export default function App() {
   return (
@@ -51,6 +53,15 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute roles={['ADMIN']}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/pending" element={<WaitingApproval />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

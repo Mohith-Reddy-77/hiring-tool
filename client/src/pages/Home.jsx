@@ -10,5 +10,8 @@ export function Home() {
   if (user?.role === 'INTERVIEWER') {
     return <Navigate to="/my-rounds" replace />
   }
+  if (user?.role === 'PENDING') {
+    return <Navigate to="/pending" replace />
+  }
   return <Navigate to="/candidates" replace />
 }

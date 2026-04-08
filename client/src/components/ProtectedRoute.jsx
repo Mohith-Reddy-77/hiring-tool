@@ -9,6 +9,8 @@ export function ProtectedRoute({ children, roles }) {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
   if (roles && user && !roles.includes(user.role)) {
+    // If the user exists but is pending approval, redirect to the pending page
+    if (user && user.role === 'PENDING') return <Navigate to="/pending" replace />
     return <Navigate to="/" replace />
   }
   return children

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react'
 import { setAuthToken } from '../api/client'
+import { authApi } from '../api/hiringApi'
 
 const AuthContext = createContext(null)
 
@@ -16,6 +17,28 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     setAuthToken(token)
+  }, [token])
+
+  // When a token exists on mount, refresh the user profile from the server
+  useEffect(() => {
+    if (!token) return
+    let mounted = true
+    authApi
+      .me()
+      .then((res) => {
+        if (!mounted) return
+        if (res && res.data && res.data.user) {
+          sessionStorage.setItem(USER_KEY, JSON.stringify(res.data.user))
+          // update local state to reflect any role changes made by admin
+          setUser(res.data.user)
+        }
+      })
+      .catch(() => {
+        // ignore errors — token may be invalid; login will handle
+      })
+    return () => {
+      mounted = false
+    }
   }, [token])
 
   const login = useCallback((newToken, profile) => {
