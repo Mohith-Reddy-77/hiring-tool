@@ -75,7 +75,8 @@ async function sendInviteEmail({ to, name, role, inviteerName }) {
     `;
 
     console.info(`Sending invite email from=${FROM_EMAIL} to=${to}`);
-    const info = await t.sendMail({ from: FROM_EMAIL, to, subject, html });
+    const mailOptions = { from: FROM_EMAIL, to, subject, html };
+    const info = await t.sendMail(mailOptions);
     return { ok: true, info };
   } catch (e) {
     // Detect MailerSend specific verification error and return a clearer message
@@ -86,9 +87,14 @@ async function sendInviteEmail({ to, name, role, inviteerName }) {
     }
     // If the error looks like a connection timeout, attempt fallback ports/transports
     if (/timeout|ENOTFOUND|ECONNREFUSED|EHOSTUNREACH|ECONNRESET/i.test(msg)) {
-      console.info('Attempting SMTP fallback transports due to:', msg);
-      const fallback = await tryFallbackSend({ from: FROM_EMAIL, to, subject, html });
-      return fallback;
+      try {
+        console.info('Attempting SMTP fallback transports due to:', msg);
+        const fallback = await tryFallbackSend(mailOptions || { from: FROM_EMAIL, to, subject, html });
+        return fallback;
+      } catch (e2) {
+        console.warn('Fallback send threw unexpectedly:', e2?.message || e2);
+        return { ok: false, reason: msg };
+      }
     }
     return { ok: false, reason: msg };
   }
