@@ -99,9 +99,15 @@ async function invite(req, res, next) {
 
     // Also update local Mongo mapping if a local user exists; do not create Mongo user here.
     try {
+      // Only attempt local Mongo mapping when mongoose is connected to avoid
+      // long buffering timeouts in environments without a reachable MongoDB.
+      const mongoose = require('mongoose');
+      const connected = mongoose && mongoose.connection && mongoose.connection.readyState === 1;
       const up = data && data[0] ? data[0] : null;
-      if (up && up.id) {
+      if (connected && up && up.id) {
         await User.findOneAndUpdate({ supabaseId: up.id }, { role: r }, { upsert: false });
+      } else if (!connected) {
+        console.info('Skipping local Mongo mapping: mongoose not connected');
       }
     } catch (e) {
       console.warn('Local user invite mapping failed:', e?.message || e);
