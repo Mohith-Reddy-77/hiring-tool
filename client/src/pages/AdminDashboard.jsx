@@ -12,6 +12,7 @@ export function AdminDashboard() {
   const [error, setError] = useState(null)
   const [status, setStatus] = useState(null)
   const [query, setQuery] = useState('')
+   const [roleFilter, setRoleFilter] = useState('ALL')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmUser, setConfirmUser] = useState(null)
   const [confirmRole, setConfirmRole] = useState(null)
@@ -34,6 +35,17 @@ export function AdminDashboard() {
   }
 
   const { user: currentUser, login } = useAuth()
+
+  const filteredUsers = users
+    .filter((u) => {
+      if (!query) return true
+      const q = query.toLowerCase()
+      return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
+    })
+    .filter((u) => {
+      if (!roleFilter || roleFilter === 'ALL') return true
+      return String(u.role || '').toUpperCase() === String(roleFilter).toUpperCase()
+    })
 
   function openConfirm(userId, role, message) {
     const u = users.find((x) => x.id === userId)
@@ -124,9 +136,15 @@ export function AdminDashboard() {
         <div className="admin-actions">
           <div className="search-wrap">
             <input className="input search" placeholder="Search by name or email" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <div className="users-count">{users.length} users</div>
+              <select className="select role-filter" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+                <option value="ALL">All roles</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="RECRUITER">RECRUITER</option>
+                <option value="INTERVIEWER">INTERVIEWER</option>
+                <option value="PENDING">PENDING</option>
+              </select>
+              <button className="btn" onClick={fetchUsers} title="Refresh users">Refresh</button>
           </div>
-          <button className="btn" onClick={fetchUsers} title="Refresh users">Refresh</button>
         </div>
       </div>
 
@@ -152,7 +170,10 @@ export function AdminDashboard() {
         </div>
 
         <div className="card users-card">
-          <h3>Users</h3>
+          <h3>
+            Users
+            <span className="users-badge">{filteredUsers.length}</span>
+          </h3>
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -164,13 +185,7 @@ export function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {users
-                  .filter((u) => {
-                    if (!query) return true
-                    const q = query.toLowerCase()
-                    return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
-                  })
-                  .map((u) => (
+                {filteredUsers.map((u) => (
                   <tr key={u.id}>
                     <td>{u.name}</td>
                     <td>{u.email}</td>
@@ -198,15 +213,23 @@ export function AdminDashboard() {
         </div>
       </div>
       {confirmOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', padding: 20, borderRadius: 6, width: 420, boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ marginTop: 0 }}>{confirmMessage}</h3>
+        <div className="confirm-overlay">
+          <div className="confirm-modal">
+            <h3>{confirmMessage}</h3>
             <p className="muted">This action will change the user's role and grant access to the corresponding dashboard.</p>
-            <div style={{ marginTop: 16, textAlign: 'right' }}>
+            <div className="confirm-actions">
               <button className="btn" onClick={() => setConfirmOpen(false)}>Cancel</button>
               <button className="btn primary" style={{ marginLeft: 8 }} onClick={doConfirm}>Confirm</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {filteredUsers.length === 0 && (
+        <div className="empty-state">
+          {users.length === 0
+            ? 'No users yet — invite someone using the panel on the left.'
+            : 'No users match the current filters.'}
         </div>
       )}
     </div>
