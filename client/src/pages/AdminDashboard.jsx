@@ -5,6 +5,8 @@ import './Page.css'
 
 export function AdminDashboard() {
   const [users, setUsers] = useState([])
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState('RECRUITER')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -76,6 +78,22 @@ export function AdminDashboard() {
     }
   }
 
+  async function submitInvite() {
+    setError(null)
+    if (!inviteEmail) return setError('Please provide an email')
+    try {
+      setLoading(true)
+      await usersApi.invite({ email: inviteEmail, role: inviteRole })
+      setInviteEmail('')
+      setInviteRole('RECRUITER')
+      await fetchUsers()
+    } catch (e) {
+      setError(e.response?.data?.message || e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (loading) return <p>Loading…</p>
   if (error) return <p className="error">{error}</p>
 
@@ -83,6 +101,15 @@ export function AdminDashboard() {
     <div className="page">
       <h1>Admin — User management</h1>
       <p className="muted">Assign roles to users. Roles: ADMIN, RECRUITER, INTERVIEWER.</p>
+      <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input placeholder="invitee email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+        <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
+          <option value="ADMIN">ADMIN</option>
+          <option value="RECRUITER">RECRUITER</option>
+          <option value="INTERVIEWER">INTERVIEWER</option>
+        </select>
+        <button className="btn primary" onClick={submitInvite}>Send Invite</button>
+      </div>
       <table className="table">
         <thead>
           <tr>

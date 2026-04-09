@@ -42,4 +42,5 @@ export const usersApi = {
   interviewers: () => api.get('/users/interviewers'),
   list: () => api.get('/users'),
   assignRole: (id, body) => api.post(`/users/${id}/role`, body),
+  invite: (body) => api.post('/users/invite', body),
 }

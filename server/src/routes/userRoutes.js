@@ -9,6 +9,8 @@ router.get('/interviewers', authenticate, requireRoles('RECRUITER'), userControl
 router.get('/', authenticate, requireRoles('ADMIN'), userController.listUsers);
 // Admin can assign roles to any user
 router.post('/:id/role', authenticate, requireRoles('ADMIN'), userController.assignRole);
+// Admin can create an invite for a user (will upsert user record with the given role)
+router.post('/invite', authenticate, requireRoles('ADMIN'), userController.invite);
 // (route above handles role assignment)
 
 module.exports = router;
