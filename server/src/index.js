@@ -12,6 +12,7 @@ const templateRoutes = require('./routes/templateRoutes');
 const roundRoutes = require('./routes/roundRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const userRoutes = require('./routes/userRoutes');
+const debugRoutes = require('./routes/debugRoutes');
 const app = express();
 const PORT = Number(process.env.PORT) || 5001;
 
@@ -102,6 +103,7 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/rounds', roundRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/debug', debugRoutes);
 
 // Health check and root route
 app.get('/health', (req, res) => res.json({ status: 'ok' }));

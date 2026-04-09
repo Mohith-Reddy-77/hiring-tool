@@ -84,4 +84,30 @@ async function sendInviteEmail({ to, name, role, inviteerName }) {
   }
 }
 
-module.exports = { sendInviteEmail };
+// Verify transporter connectivity with a timeout (ms)
+async function verifyTransport(timeout = 8000) {
+  const t = getTransport();
+  if (!t) return { ok: false, reason: 'mail not configured' };
+  // Wrap verify in a timeout
+  const verifyPromise = t.verify();
+  const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('verify timeout')), timeout));
+  try {
+    await Promise.race([verifyPromise, timeoutPromise]);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: e?.message || String(e) };
+  }
+}
+
+// Expose masked config for diagnostics
+function getMaskedConfig() {
+  const maskedUser = SMTP_USER ? (SMTP_USER.length > 6 ? `${SMTP_USER.slice(0, 3)}...${SMTP_USER.slice(-3)}` : SMTP_USER) : '<none>';
+  return {
+    host: SMTP_HOST || null,
+    port: SMTP_PORT || null,
+    user: maskedUser,
+    from: FROM_EMAIL || null,
+  };
+}
+
+module.exports = { sendInviteEmail, verifyTransport, getMaskedConfig };
