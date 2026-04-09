@@ -56,6 +56,7 @@ function getTransport() {
 }
 
 async function sendInviteEmail({ to, name, role, inviteerName }) {
+  let mailOptions;
   try {
     const t = getTransport();
     if (!t) return { ok: false, reason: 'mail not configured' };
@@ -75,7 +76,7 @@ async function sendInviteEmail({ to, name, role, inviteerName }) {
     `;
 
     console.info(`Sending invite email from=${FROM_EMAIL} to=${to}`);
-    const mailOptions = { from: FROM_EMAIL, to, subject, html };
+    mailOptions = { from: FROM_EMAIL, to, subject, html };
     const info = await t.sendMail(mailOptions);
     return { ok: true, info };
   } catch (e) {
