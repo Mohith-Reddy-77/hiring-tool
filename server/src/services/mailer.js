@@ -40,10 +40,10 @@ function getTransport() {
       user: SMTP_USER,
       pass: SMTP_PASS,
     },
-    // timeouts in ms to fail fast in production
-    connectionTimeout: Number(process.env.SMTP_CONN_TIMEOUT_MS || 8000),
-    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 5000),
-    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 10000),
+    // timeouts in ms; increase defaults to accommodate slower hosts
+    connectionTimeout: Number(process.env.SMTP_CONN_TIMEOUT_MS || 20000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 30000),
   });
   // Log masked transport info for diagnostics (do not log secrets)
   try {
@@ -94,35 +94,46 @@ async function sendInviteEmail({ to, name, role, inviteerName }) {
   }
 }
 
-// Attempt to send using alternate ports/secure settings when initial send fails
+// Attempt to send using alternate ports/secure settings when initial send fails.
+// This helper will not throw; it will return an object describing success/failure.
 async function tryFallbackSend(mailOpts) {
-  const ports = [2525, 587, 465];
-  for (const p of ports) {
-    const secure = p === 465;
-    try {
-      console.info(`Trying fallback SMTP port=${p} secure=${secure}`);
-      const altTransport = nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: p,
-        secure,
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
-        connectionTimeout: Number(process.env.SMTP_CONN_TIMEOUT_MS || 8000),
-        greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 5000),
-        socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 10000),
-      });
-      // quick verify
-      await Promise.race([altTransport.verify(), new Promise((_, rej) => setTimeout(() => rej(new Error('verify timeout')), Number(process.env.SMTP_CONN_TIMEOUT_MS || 8000)))]);
-      const info = await altTransport.sendMail(mailOpts);
-      console.info(`Fallback send success port=${p}`);
-      // replace global transporter so future sends use the working config
-      transporter = altTransport;
-      return { ok: true, info };
-    } catch (e) {
-      console.warn(`Fallback port ${p} failed:`, e?.message || e);
-      // continue to next port
+  try {
+    if (!mailOpts || typeof mailOpts !== 'object') {
+      return { ok: false, reason: 'invalid mail options' };
     }
+    const ports = [2525, 587, 465];
+    for (const p of ports) {
+      const secure = p === 465;
+      try {
+        console.info(`Trying fallback SMTP port=${p} secure=${secure}`);
+        const altTransport = nodemailer.createTransport({
+          host: SMTP_HOST,
+          port: p,
+          secure,
+          auth: { user: SMTP_USER, pass: SMTP_PASS },
+          connectionTimeout: Number(process.env.SMTP_CONN_TIMEOUT_MS || 20000),
+          greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000),
+          socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 30000),
+        });
+        // quick verify with timeout
+        await Promise.race([
+          altTransport.verify(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('verify timeout')), Number(process.env.SMTP_CONN_TIMEOUT_MS || 20000))),
+        ]);
+        const info = await altTransport.sendMail(mailOpts);
+        console.info(`Fallback send success port=${p}`);
+        // replace global transporter so future sends use the working config
+        transporter = altTransport;
+        return { ok: true, info };
+      } catch (e) {
+        console.warn(`Fallback port ${p} failed:`, e?.message || e);
+        // continue to next port
+      }
+    }
+    return { ok: false, reason: 'All SMTP fallback attempts failed' };
+  } catch (e) {
+    return { ok: false, reason: e?.message || String(e) };
   }
-  return { ok: false, reason: 'All SMTP fallback attempts failed' };
 }
 
 // Verify transporter connectivity with a timeout (ms)

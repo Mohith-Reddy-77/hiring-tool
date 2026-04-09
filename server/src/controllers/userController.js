@@ -127,18 +127,29 @@ async function invite(req, res, next) {
         }
       })();
       const resolvedName = await inviterName;
-      emailResult = await mailer.sendInviteEmail({ to: String(email).toLowerCase(), name: name || null, role: r, inviteerName: resolvedName });
-      if (!emailResult.ok) {
-        console.warn('Invite email not sent:', emailResult.reason);
-        emailError = emailResult.reason || String(emailResult);
-      }
+      // Fire-and-forget: perform email send in background so the API response
+      // doesn't block on SMTP connectivity in production. Log any failures.
+      mailer
+        .sendInviteEmail({ to: String(email).toLowerCase(), name: name || null, role: r, inviteerName: resolvedName })
+        .then((result) => {
+          if (!result || !result.ok) {
+            console.warn('Invite email failed (background):', result ? result.reason : 'no result');
+          } else {
+            console.info('Invite email sent (background)');
+          }
+        })
+        .catch((err) => {
+          console.warn('Invite email error (background):', err?.message || err);
+        });
+      // mark as queued for the client
+      emailResult = { ok: true, info: null };
     } catch (e) {
-      console.warn('Invite email sending failed:', e?.message || e);
-      emailError = e?.message || String(e);
+      console.warn('Invite email send scheduling failed:', e?.message || e);
+      // do not fail the request
     }
 
     // Include any email delivery error in response so UI can surface it.
-    const responseBody = { user: (data && data[0]) ? data[0] : null, emailSent: !!(emailResult && emailResult.ok) };
+    const responseBody = { user: (data && data[0]) ? data[0] : null, emailSent: !!(emailResult && emailResult.ok), emailQueued: true };
     if (emailError) responseBody.emailError = emailError;
     res.status(201).json(responseBody);
   } catch (e) {
