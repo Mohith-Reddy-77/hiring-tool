@@ -71,10 +71,30 @@ async function invite(req, res, next) {
 
     // Upsert a user record with the invited role. Keep payload minimal to avoid schema mismatch.
     const payload = { email: String(email).toLowerCase(), role: r, name: name || '' };
-    const { data, error } = await client.from('users').upsert(payload).select();
-    if (error) {
-      console.warn('Supabase invite user error:', error);
-      return res.status(500).json({ message: 'Failed to create invite' });
+    let data = null;
+    let upsertError = null;
+    // Retry upsert a few times in case of transient network errors
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const resp = await client.from('users').upsert(payload).select();
+        if (resp && !resp.error) {
+          data = resp.data;
+          upsertError = null;
+          break;
+        }
+        upsertError = resp.error || new Error('Unknown upsert error');
+        console.warn(`Supabase invite user attempt ${attempt} error:`, upsertError);
+      } catch (e) {
+        upsertError = e;
+        console.warn(`Supabase invite user attempt ${attempt} threw:`, e?.message || e);
+      }
+      // small backoff
+      await new Promise((r) => setTimeout(r, 500 * attempt));
+    }
+
+    if (!data && upsertError) {
+      console.warn('Supabase invite user final error:', upsertError);
+      // do NOT fail the whole request — continue to send invite email and return the error info
     }
 
     // Also update local Mongo mapping if a local user exists; do not create Mongo user here.
@@ -89,6 +109,7 @@ async function invite(req, res, next) {
 
     // Attempt to send invite email (if mailer configured). Include inviter name when possible.
     let emailResult = null;
+    let emailError = null;
     try {
       const inviterName = (async () => {
         try {
@@ -101,12 +122,19 @@ async function invite(req, res, next) {
       })();
       const resolvedName = await inviterName;
       emailResult = await mailer.sendInviteEmail({ to: String(email).toLowerCase(), name: name || null, role: r, inviteerName: resolvedName });
-      if (!emailResult.ok) console.warn('Invite email not sent:', emailResult.reason);
+      if (!emailResult.ok) {
+        console.warn('Invite email not sent:', emailResult.reason);
+        emailError = emailResult.reason || String(emailResult);
+      }
     } catch (e) {
       console.warn('Invite email sending failed:', e?.message || e);
+      emailError = e?.message || String(e);
     }
 
-    res.status(201).json({ user: (data && data[0]) ? data[0] : null, emailSent: !!(emailResult && emailResult.ok) });
+    // Include any email delivery error in response so UI can surface it.
+    const responseBody = { user: (data && data[0]) ? data[0] : null, emailSent: !!(emailResult && emailResult.ok) };
+    if (emailError) responseBody.emailError = emailError;
+    res.status(201).json(responseBody);
   } catch (e) {
     next(e);
   }

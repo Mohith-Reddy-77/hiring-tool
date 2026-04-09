@@ -83,7 +83,13 @@ export function AdminDashboard() {
     if (!inviteEmail) return setError('Please provide an email')
     try {
       setLoading(true)
-      await usersApi.invite({ email: inviteEmail, role: inviteRole })
+      const res = await usersApi.invite({ email: inviteEmail, role: inviteRole, name: inviteEmail.split('@')[0] })
+      // If API returned but email failed, surface the error
+      if (res?.data && res.data.emailSent === false) {
+        const reason = res.data.emailError || 'Invite created but email failed to send'
+        setError(reason)
+        return
+      }
       setInviteEmail('')
       setInviteRole('RECRUITER')
       await fetchUsers()
