@@ -154,7 +154,6 @@ export function AdminDashboard() {
       <div className="admin-grid">
         <div className="card invite-card">
           <h3>Invite user</h3>
-          <p className="muted">Send a Google SSO invite. Email will be sent in background.</p>
           <div className="form-row">
             <input className="input" placeholder="invitee email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
             <select className="select" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
